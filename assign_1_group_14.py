@@ -83,7 +83,7 @@ def plot(train, test, grid, class_boundary, title):
     class_boundary = class_boundary.astype(str)
     class_boundary[class_boundary=='0'] = 'green'
     class_boundary[class_boundary=='1'] = 'blue'
-    plt.scatter(grid['X1'], grid['X2'], marker='.', c=class_boundary, s=2)
+    plt.scatter(grid['X1'], grid['X2'], marker='.', c=class_boundary, s=4)
 
     plt.title(title)      
     plt.xlim(0.6, 2.3)
@@ -100,11 +100,26 @@ def Q1_results():
     grid = grid_point_loader()
 
     knn_Euclidean = KNN('Euclidean')
-
-    for k in [1,3,5,10,20,30,50,100,150,200]:
+    ks = [1,3,5,10,20,30,50,100,150,200]
+    # ks = [i for i in range(1,len(train),10)]
+    test_accs=  [] 
+    train_accs = [] 
+    for k in ks:
         train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test), knn_Euclidean.generate_grid(grid)
-        title = f'k={k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)}'
+        test_accs.append(test_acc)
+        train_accs.append(train_acc)
+        title = f'k={k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Euclidean'
         plot(train, test, grid, class_boundary, title)
+    print(f'test accuracies : {test_accs}')
+    print(f'train accuracies : {train_accs}')
+
+    plt.plot(ks, test_accs, 'g--', label="Test Error Rate")
+    plt.plot(ks, train_accs, 'b--', label="Train Error Rate")
+    plt.xlabel('K')
+    plt.ylabel('Error Rate')
+    plt.legend(loc='lower left')
+    plt.show()
+    
 
 def Q2_results():
     global knn_Manhattan
@@ -116,7 +131,7 @@ def Q2_results():
     knn_Manhattan = KNN('Manhattan')
     best_k = knn_Euclidean.best_classifier_k
     train_acc, test_acc, class_boundary = *knn_Manhattan.train_test(best_k, train, test), knn_Manhattan.generate_grid(grid)
-    title = f'k={best_k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)}'
+    title = f'k={best_k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Manhattan'
     plot(train, test, grid, class_boundary, title)
     print(f'Euclidean -> Best Accuracy = {knn_Euclidean.best_classifier_accuracy} and Best k = {knn_Euclidean.best_classifier_k}')
     print(f'Manhattan -> Best Accuracy = {knn_Manhattan.best_classifier_accuracy} and Best k = {knn_Manhattan.best_classifier_k}')
