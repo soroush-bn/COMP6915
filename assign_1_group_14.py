@@ -127,8 +127,6 @@ def test_data_loader():
 def grid_point_loader(augment=False):
     df=  pd.read_csv('2D_grid_points.csv', names=['X1', 'X2'], header=None)
     if augment:
-        df_mean_x1 =  np.mean(df['X1'].values)
-        df_mean_x2 =  np.mean(df['X2'].values)
         poly = PolynomialFeatures(degree=2, include_bias=False)
         augmented_features = poly.fit_transform(df[['X1','X2']])
         feature_names = poly.get_feature_names_out(input_features=['X1', 'X2'])
@@ -136,7 +134,7 @@ def grid_point_loader(augment=False):
     # df['X3'] = (df['X1']-df_mean_x1)**2  + ( df['X2']-df_mean_x2)**2
     return df
         
-def plot(train, test, grid, class_boundary, title):
+def plot(train, test, grid, class_boundary, title,x_lim= 0.6,y_lim=  2.3):
     train_label = train['label'].astype(str)
     train_label[train_label=='0'] = 'green'
     train_label[train_label=='1'] = 'blue'
@@ -153,9 +151,9 @@ def plot(train, test, grid, class_boundary, title):
     plt.scatter(grid['X1'], grid['X2'], marker='.', c=class_boundary, s=4)
 
     plt.title(title)      
-    plt.xlim(0.6, 2.3)
+    plt.xlim(x_lim,y_lim)
     plt.xlabel('X1')
-    plt.ylim(0.6, 2.3)
+    plt.ylim(x_lim,y_lim)
     plt.ylabel('X2')
     plt.show()
 
@@ -165,12 +163,12 @@ def Q1_results():
     train = train_data_loader()
     test = test_data_loader()
     grid = grid_point_loader()
-
     knn_Euclidean = KNN('Euclidean')
     ks = [1,3,5,10,20,30,50,100,150,200]
     # ks = [i for i in range(1,len(train),10)]
     test_accs=  [] 
     train_accs = [] 
+    
     print(knn_Euclidean.bayes_error(train,test))
     for k in ks:
         train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test), knn_Euclidean.generate_grid(grid)
@@ -251,6 +249,9 @@ def Q4_results():
     train = train_data_loader()
     test = test_data_loader()
     grid = grid_point_loader()
+    scaler = MinMaxScaler()
+    grid[['X1','X2']]   = scaler.fit_transform(grid[['X1','X2']])
+
 
     knn_Euclidean = KNN('Euclidean')
     ks = [30]
@@ -262,7 +263,7 @@ def Q4_results():
         test_accs.append(test_acc)
         train_accs.append(train_acc)
         title = f'k={k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Euclidean'
-        plot(train, test, grid, class_boundary, title)
+        plot(train, test, grid, class_boundary, title,x_lim=0,y_lim=1)
     print("Question 4 accuracy:")
     print(f"test_acc:{test_accs},train_accuracy:{train_accs}")
 
