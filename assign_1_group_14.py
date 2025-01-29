@@ -19,7 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.cluster import DBSCAN
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier,KernelDensity
 from sklearn.preprocessing import StandardScaler,MinMaxScaler,RobustScaler,PolynomialFeatures
 
 #####################################################################################
@@ -39,8 +39,6 @@ class KNN():
     def train_test(self, k, train_data, test_data,augment=False,normalize = False,noise=False):
         self.knn_clasifier = KNeighborsClassifier(k, p=self.distance_metric)
 
-        if noise:
-            train_data = noise_removal(train_data)
         # print(len(train_data))
         if augment:
             poly = PolynomialFeatures(degree=2, include_bias=False)
@@ -61,6 +59,8 @@ class KNN():
         else:
             features = [['X1','X2']]
 
+        if noise:
+            train_data = noise_removal(train_data)
         if normalize:
             scaler = MinMaxScaler()
             for f in features: 
@@ -84,6 +84,25 @@ class KNN():
 
         return train_acc, test_acc
     
+    def bayes_error(self,train_data,test_data):
+        kde_0 = KernelDensity(kernel='gaussian', bandwidth=0.00001).fit(train_data[train_data['label'] == 0][['X1','X2']])
+        kde_1 = KernelDensity(kernel='gaussian', bandwidth=0.00001).fit(train_data[train_data['label'] == 1][['X1','X2']])
+
+        log_p_x_given_y0 = kde_0.score_samples(test_data[['X1','X2']])
+        log_p_x_given_y1 = kde_1.score_samples(test_data[['X1','X2']])
+
+        p_x_given_y0 = np.exp(log_p_x_given_y0)
+        p_x_given_y1 = np.exp(log_p_x_given_y1)
+
+        p_y0 = np.mean(train_data['label'] == 0)
+        p_y1 = np.mean(train_data['label'] == 1)
+
+        p_y0_given_x = (p_x_given_y0 * p_y0) / (p_x_given_y0 * p_y0 + p_x_given_y1 * p_y1)
+        p_y1_given_x = (p_x_given_y1 * p_y1) / (p_x_given_y0 * p_y0 + p_x_given_y1 * p_y1)
+
+        bayes_error = np.mean(np.minimum(p_y0_given_x, p_y1_given_x))
+        return bayes_error
+
     def generate_grid(self, grid,augment= False):
         if augment :
             return self.knn_clasifier.predict(grid[['X1', 'X2', 'X1^2', 'X1 X2', 'X2^2']])
@@ -152,6 +171,7 @@ def Q1_results():
     # ks = [i for i in range(1,len(train),10)]
     test_accs=  [] 
     train_accs = [] 
+    print(knn_Euclidean.bayes_error(train,test))
     for k in ks:
         train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test), knn_Euclidean.generate_grid(grid)
         test_accs.append(test_acc)
@@ -222,9 +242,8 @@ def noise_removal(df):
     # print(df.describe())
     dbscan = DBSCAN(eps=0.1, min_samples=4)  
     df['cluster'] = dbscan.fit_predict(df[['X1','X2']])
-    refined_df = df[df['cluster'] != -1].drop(columns=['cluster'])  
-    
-    return refined_df 
+    df.drop(df[df['cluster'] == -1].index, inplace=True)
+    return df
 
 def Q4_results():
     global knn_Euclidean
