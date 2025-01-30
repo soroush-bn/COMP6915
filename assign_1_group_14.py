@@ -3,7 +3,7 @@
 #
 #  Group 14:
 #  Ramyar Zarza rzarza@mun.ca
-#  <Group Member 2 name> <Group Member 1 email>
+#  Soroush Baghernezhad sbaghernezha@mun.ca
 #  <Group Member 3 name> <Group Member 1 email>
 
 ####################################################################################
