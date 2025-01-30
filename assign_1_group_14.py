@@ -36,8 +36,8 @@ class KNN():
         self.best_classifier_k = None
         self.knn_clasifier = None
 
-    def train_test(self, k, train_data, test_data,augment=False,normalize = False,noise=False, inference=False):
-        self.knn_clasifier = KNeighborsClassifier(k, p=self.distance_metric)
+    def train_test(self, k, train_data, test_data,augment=False,normalize = False,noise=False, inference=False,w='uniform'):
+        self.knn_clasifier = KNeighborsClassifier(k,weights=w, p=self.distance_metric)
 
         # print(len(train_data))
         if augment:
@@ -65,8 +65,7 @@ class KNN():
             scaler = MinMaxScaler()
             for f in features: 
                 train_data[f] = scaler.fit_transform(train_data[f])
-                test_data[f] = scaler.fit_transform(test_data[f])
-            # print(train_data.describe())
+                test_data[f] = scaler.transform(test_data[f])
             
         self.knn_clasifier.fit(train_data[features[0]], train_data['label'])
         if inference:
@@ -171,7 +170,7 @@ def Q1_results():
     # ks = [i for i in range(1,len(train),10)]
     test_accs=  [] 
     train_accs = [] 
-    
+    print("Estimated Bayes error is : ")
     print(knn_Euclidean.bayes_error(train,test))
     for k in ks:
         train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test), knn_Euclidean.generate_grid(grid)
@@ -257,12 +256,12 @@ def Q4_results():
 
 
     knn_Euclidean = KNN('Euclidean')
-    ks = [30]
-    # ks = [i for i in range(1,len(train),10)]
+    # ks = [30]
+    ks = [19]
     test_accs=  [] 
     train_accs = [] 
     for k in ks:
-        train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test,normalize=True,noise=True), knn_Euclidean.generate_grid(grid)
+        train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test,normalize=True,noise=True,w= 'distance'), knn_Euclidean.generate_grid(grid)
         test_accs.append(test_acc)
         train_accs.append(train_acc)
         title = f'k={k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Euclidean'
