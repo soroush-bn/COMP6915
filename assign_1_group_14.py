@@ -36,7 +36,7 @@ class KNN():
         self.best_classifier_k = None
         self.knn_clasifier = None
 
-    def train_test(self, k, train_data, test_data,augment=False,normalize = False,noise=False):
+    def train_test(self, k, train_data, test_data,augment=False,normalize = False,noise=False, inference=False):
         self.knn_clasifier = KNeighborsClassifier(k, p=self.distance_metric)
 
         # print(len(train_data))
@@ -69,8 +69,11 @@ class KNN():
             # print(train_data.describe())
             
         self.knn_clasifier.fit(train_data[features[0]], train_data['label'])
-        train_acc = self.knn_clasifier.score(train_data[features[0]], train_data['label'])
-        test_acc = self.knn_clasifier.score(test_data[features[0]], test_data['label'])
+        if inference:
+            return self.knn_clasifier.predict(test_data)
+        else:
+            train_acc = self.knn_clasifier.score(train_data[features[0]], train_data['label'])
+            test_acc = self.knn_clasifier.score(test_data[features[0]], test_data['label'])
         
         if self.best_classifier == None:
             self.best_classifier = self.knn_clasifier
@@ -85,8 +88,8 @@ class KNN():
         return train_acc, test_acc
     
     def bayes_error(self,train_data,test_data):
-        kde_0 = KernelDensity(kernel='gaussian', bandwidth=0.00001).fit(train_data[train_data['label'] == 0][['X1','X2']])
-        kde_1 = KernelDensity(kernel='gaussian', bandwidth=0.00001).fit(train_data[train_data['label'] == 1][['X1','X2']])
+        kde_0 = KernelDensity(kernel='gaussian', bandwidth=0.1).fit(train_data[train_data['label'] == 0][['X1','X2']])
+        kde_1 = KernelDensity(kernel='gaussian', bandwidth=0.1).fit(train_data[train_data['label'] == 1][['X1','X2']])
 
         log_p_x_given_y0 = kde_0.score_samples(test_data[['X1','X2']])
         log_p_x_given_y1 = kde_1.score_samples(test_data[['X1','X2']])
@@ -268,6 +271,14 @@ def Q4_results():
     print(f"test_acc:{test_accs},train_accuracy:{train_accs}")
 
     
+def diagnoseDAT(Xtest, data_dir):
+    train = data_loader(data_dir + '/train.sDAT.csv', data_dir + '/train.sNC.csv')
+    test = data_loader(data_dir + '/test.sDAT.csv', data_dir + '/test.sNC.csv')
+    Xtest = pd.DataFrame(Xtest, columns=['X1', 'X2'])
+    knn_Euclidean = KNN('Euclidean')
+    prediction = knn_Euclidean.train_test(30, train, Xtest, normalize=True, noise=True, inference=True)
+
+    return list(prediction)
 
 #########################################################################################
 # Calls to generate the results
