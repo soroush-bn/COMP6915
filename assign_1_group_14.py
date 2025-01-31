@@ -4,7 +4,7 @@
 #  Group 14:
 #  Ramyar Zarza rzarza@mun.ca
 #  Soroush Baghernezhad sbaghernezha@mun.ca
-#  <Group Member 3 name> <Group Member 1 email>
+#  Mantra mantras@mun.ca
 
 ####################################################################################
 # Imports
