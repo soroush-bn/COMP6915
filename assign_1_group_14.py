@@ -54,13 +54,12 @@ class KNN():
             test_data = pd.DataFrame(augmented_features_test, columns=feature_names_test)
             test_data['label'] = test_labels
             features = [[*feature_names]]
-
-
         else:
             features = [['X1','X2']]
 
         if noise:
             train_data = noise_removal(train_data)
+
         if normalize:
             scaler = MinMaxScaler()
             for f in features: 
@@ -68,6 +67,7 @@ class KNN():
                 test_data[f] = scaler.transform(test_data[f])
             
         self.knn_clasifier.fit(train_data[features[0]], train_data['label'])
+
         if inference:
             return self.knn_clasifier.predict(test_data)
         else:
@@ -84,7 +84,7 @@ class KNN():
                 self.best_classifier_accuracy = test_acc
                 self.best_classifier_k = k
 
-        return train_acc, test_acc
+        return round(train_acc, 3), round(test_acc, 3)
     
     def bayes_error(self,train_data,test_data):
         kde_0 = KernelDensity(kernel='gaussian', bandwidth=0.1).fit(train_data[train_data['label'] == 0][['X1','X2']])
@@ -170,7 +170,7 @@ def Q1_results():
     # ks = [i for i in range(1,len(train),10)]
     test_accs=  [] 
     train_accs = [] 
-    print("Estimated Bayes error is : ")
+    print("Estimated Bayes error is : ", end='')
     print(knn_Euclidean.bayes_error(train,test))
     for k in ks:
         train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test), knn_Euclidean.generate_grid(grid)
@@ -184,8 +184,8 @@ def Q1_results():
     print(f'train accuracies : {train_accs}')
     print("--"*10)
 
-    plt.plot(ks, test_accs, 'g--', label="Test Error Rate")
-    plt.plot(ks, train_accs, 'b--', label="Train Error Rate")
+    plt.plot(ks, 1 - np.array(test_accs), 'g--', label="Test Error Rate")
+    plt.plot(ks, 1 - np.array(train_accs), 'b--', label="Train Error Rate")
     plt.xlabel('K')
     plt.ylabel('Error Rate')
     plt.legend(loc='lower left')
@@ -261,23 +261,31 @@ def Q4_results():
     test_accs=  [] 
     train_accs = [] 
     for k in ks:
-        train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test,normalize=True,noise=True,w= 'distance'), knn_Euclidean.generate_grid(grid)
+        train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test, normalize=True, noise=True, w='distance'), knn_Euclidean.generate_grid(grid)
         test_accs.append(test_acc)
         train_accs.append(train_acc)
         title = f'k={k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Euclidean'
         plot(train, test, grid, class_boundary, title,x_lim=0,y_lim=1)
-    print("Question 4 accuracy:")
+    print("--"*5 +"Question 4" + "--" *5)
     print(f"test_acc:{test_accs},train_accuracy:{train_accs}")
+    print("--"*10)
+
 
     
 def diagnoseDAT(Xtest, data_dir):
+    """
+    Examples
+    --------
+    >>> diagnoseDAT([[1,1]], '.')
+    array([1])
+
+    """
     train = data_loader(data_dir + '/train.sDAT.csv', data_dir + '/train.sNC.csv')
     test = data_loader(data_dir + '/test.sDAT.csv', data_dir + '/test.sNC.csv')
     Xtest = pd.DataFrame(Xtest, columns=['X1', 'X2'])
     knn_Euclidean = KNN('Euclidean')
-    prediction = knn_Euclidean.train_test(30, train, Xtest, normalize=True, noise=True, inference=True)
-
-    return list(prediction)
+    prediction = knn_Euclidean.train_test(19, train, Xtest, normalize=True, noise=True, inference=True, w='distance')
+    return prediction
 
 #########################################################################################
 # Calls to generate the results
