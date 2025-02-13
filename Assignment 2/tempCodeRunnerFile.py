@@ -1,0 +1,5 @@
+plt.scatter(y_test, y_test_pred, alpha=0.5)
+# plt.xlabel("Actual Strength")
+# plt.ylabel("Predicted Strength")
+# plt.title("Actual vs Predicted Compressive Strength")
+# plt.show()
