@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import DBSCAN
 
 #####################################################################################
 #  Implementation - helper functions and question wise result generators
@@ -158,6 +160,65 @@ def Q3_results():
     plt.legend()
     plt.show()
 
+
+def remove_noise_dbscan(X, eps=50, min_samples=2):
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+    labels = dbscan.fit_predict(X)
+    
+    mask = labels != -1
+    return X[mask], mask 
+
+def remove_outliers_iqr(X):
+    Q1 = np.percentile(X, 25, axis=0)
+    Q3 = np.percentile(X, 75, axis=0)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    mask = ~((X < lower_bound) | (X > upper_bound)).any(axis=1)
+    return X[mask], mask
+
+def preprocess_data(X, test=False):
+    if not test : 
+        X_denoised, mask = remove_outliers_iqr(X)
+    else:
+        X_denoised = X
+        mask = None
+    
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_denoised)
+    
+    return X_scaled, mask  
+
+import seaborn as sns
+def Q4_results():
+    print('Generating results for Q4...')
+    
+    data = load_data('train.csv')
+    
+    X = data.iloc[:, :-1]
+    y = data.iloc[:, -1]
+        
+    # Preprocess features and remove noise
+    X, mask = preprocess_data(X)
+    y = y[mask].values
+    print(X.shape, y.shape)
+    final_model = train_linear_regression(X, y)
+    
+    test_data = load_data('test.csv')
+    X_test_real = test_data.iloc[:, :-1]
+    y_test_real = test_data.iloc[:, -1]
+    
+    X_test_real, _ = preprocess_data(X_test_real, test=True)
+
+    #  regression model on the test set
+    rse, r2 = evaluate_model(final_model, X_test_real, y_test_real)
+    print(f"Final Lasso Model - RSE: {rse}, R^2: {r2}")
+    X = pd.DataFrame(X)
+    sns.pairplot(X, corner=True)
+    plt.show()
+
+    
+
 #########################################################################################
 # Calls to generate the results
 #########################################################################################
@@ -165,3 +226,4 @@ if __name__ == "__main__":
     Q1_results()
     Q2_results()
     Q3_results()
+    Q4_results()
