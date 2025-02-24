@@ -14,6 +14,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.linear_model import ElasticNetCV, LassoLarsCV, LinearRegression, Ridge, Lasso,LassoCV,RidgeCV,ElasticNet
 from sklearn.metrics import mean_squared_error, r2_score
@@ -73,9 +74,11 @@ def Q1_results():
     
     # cross validation approach
     linear_model_cv = LinearRegression()
-    cv_scores = cross_val_score(linear_model_cv, X, y, cv=5, scoring='neg_mean_squared_error')
-    mse_cv = -cv_scores.mean()
-    rse_cv = np.sqrt(mse_cv * len(X) / (len(X) - 9))
+    n_folds = 5
+    cv_scores = cross_val_score(linear_model_cv, X, y, cv=n_folds, scoring='neg_mean_squared_error')
+    
+    mse_cv = -cv_scores
+    rse_cv = np.sqrt(mse_cv * (len(X)/n_folds) / (len(X)/n_folds - 9)).mean()
     r2_cv = cross_val_score(linear_model_cv, X, y, cv=5, scoring='r2').mean()
     print(f"Simple Linear Regression - Cross-Validation RSE: {rse_cv}, R^2: {r2_cv}")
 
@@ -87,7 +90,6 @@ def Q2_results():
     X = data.iloc[:, :-1]
     y = data.iloc[:, -1]
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     alpha_values = np.logspace(-2, 5, 50)
     param_grid = {'alpha': alpha_values}
@@ -95,14 +97,13 @@ def Q2_results():
     #cross-validation
     ridge = Ridge()
     grid_search = GridSearchCV(ridge, param_grid, cv=5, scoring='neg_mean_squared_error')
-    grid_search.fit(X_train, y_train)
+    grid_search.fit(X, y)
     
     # best alpha
     best_alpha = grid_search.best_params_['alpha']
     print(f"Best alpha: {best_alpha}")
     
     final_ridge_model = train_ridge_regression(X, y, best_alpha)
-    
     test_data = load_data('test.csv')
     X_test_real = test_data.iloc[:, :-1]
     y_test_real = test_data.iloc[:, -1]
@@ -131,15 +132,14 @@ def Q3_results():
     X = data.iloc[:, :-1]
     y = data.iloc[:, -1]
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    alpha_values = np.logspace(-2, 1, 50)
+    alpha_values = np.logspace(-2, 5, 50)
     param_grid = {'alpha': alpha_values}
     
     #cross-validation
     lasso = Lasso()
     grid_search = GridSearchCV(lasso, param_grid, cv=5, scoring='neg_mean_squared_error')
-    grid_search.fit(X_train, y_train)
+    grid_search.fit(X, y)
     
     # best alpha
     best_alpha = grid_search.best_params_['alpha']
@@ -197,6 +197,7 @@ def preprocess_data(X, test=False):
     return X_scaled, mask  
 
 def Q4_results():
+    n_folds=20
     print('Generating results for Q4...')
     data = load_data('train.csv')
     
@@ -208,10 +209,10 @@ def Q4_results():
     X_test_real = test_data.iloc[:, :-1]
     y_test_real = test_data.iloc[:, -1]
 
-    alphas = np.logspace(-4, 4, 100)  
+    alphas = np.logspace(-2, 5, 100)  
 
     start_time = time.time()
-    model = make_pipeline(StandardScaler(), LassoCV(alphas=alphas, cv=20)).fit(X, y)
+    model = make_pipeline(StandardScaler() , LassoCV(alphas=alphas, cv=n_folds)).fit(X, y)
     fit_time = time.time() - start_time
     
     lasso = model[-1]
@@ -232,7 +233,7 @@ def Q4_results():
     
     # RidgeCV
     start_time = time.time()
-    model = make_pipeline(StandardScaler(), RidgeCV(alphas=alphas, cv=20 )).fit(X, y)
+    model = make_pipeline(StandardScaler() ,RidgeCV(alphas=alphas, cv=n_folds )).fit(X, y)
     fit_time = time.time() - start_time
     ridge = model[-1]
     print("best ridge alpha" + str(ridge.alpha_))
@@ -243,9 +244,9 @@ def Q4_results():
     print(f"Final Ridge Model - RSE: {rse_ridge}, R^2: {r2_ridge}")
     
 
-    # ElasticNetCV
+    # ElasticNetCV(
     start_time = time.time()
-    model = make_pipeline(StandardScaler(), ElasticNetCV(alphas=alphas, cv=20)).fit(X, y)
+    model = make_pipeline(StandardScaler() , ElasticNetCV(alphas=alphas, cv=n_folds)).fit(X, y)
     fit_time = time.time() - start_time
     
     elastic_net = model[-1]
@@ -266,6 +267,74 @@ def Q4_results():
     plt.legend()
     _ = plt.title(f"ElasticNet (train time: {fit_time:.2f}s)")
     plt.show()
+
+def ytest(x_test, data_dir):
+    n_folds=20
+    print('Generating results for Q4...')
+    data = load_data(data_dir)
+    
+    X = data.iloc[:, :-1]
+    y = data.iloc[:, -1]
+
+    x_test = pd.DataFrame(x_test, columns=data.columns[:8])
+    alphas = np.logspace(-2, 5, 100)  
+
+    # start_time = time.time()
+    # model = make_pipeline(StandardScaler() , LassoCV(alphas=alphas, cv=n_folds)).fit(X, y)
+    # fit_time = time.time() - start_time
+    
+    # lasso = model[-1]
+    # n, p = X.shape
+    # rse_path = np.sqrt((lasso.mse_path_ * n) / (n - p - 1))
+    # plt.subplot(1, 2, 1)
+    # plt.semilogx(lasso.alphas_, rse_path, linestyle=":")
+    # plt.plot(lasso.alphas_, rse_path.mean(axis=-1), color="black", label="Average across the folds", linewidth=2)
+    # plt.axvline(lasso.alpha_, linestyle="--", color="black", label="alpha: CV estimate")
+    # plt.xlabel(r"$\alpha$")
+    # plt.ylabel("(RSE)")
+    # plt.legend()
+    # _ = plt.title(f"Lasso via coordinate descent (train time: {fit_time:.2f}s)")
+    # final_lasso_model = train_lasso_regression(X, y, lasso.alpha_)
+    # rse_lasso, r2_lasso = evaluate_model(final_lasso_model, X_test_real, y_test_real)
+    # print("best lasso alpha: "  + str(lasso.alpha_))
+    # print(f"Final lasso Model - RSE: {rse_lasso}, R^2: {r2_lasso}")
+    
+    # RidgeCV
+    start_time = time.time()
+    model = make_pipeline(StandardScaler() ,RidgeCV(alphas=alphas, cv=n_folds )).fit(X, y)
+    fit_time = time.time() - start_time
+    ridge = model[-1]
+    # print("best ridge alpha" + str(ridge.alpha_))
+        
+    final_ridge_model = train_ridge_regression(X, y, ridge.alpha_)
+    return final_ridge_model.predict(x_test)
+    # rse_ridge, r2_ridge = evaluate_model(final_ridge_model, X_test_real, y_test_real)
+    # print(f"Final Ridge Model - RSE: {rse_ridge}, R^2: {r2_ridge}")
+    
+
+    # ElasticNetCV(
+    # start_time = time.time()
+    # model = make_pipeline(StandardScaler() , ElasticNetCV(alphas=alphas, cv=n_folds)).fit(X, y)
+    # fit_time = time.time() - start_time
+    
+    # elastic_net = model[-1]
+    # print("best elasticNET alpha : " + str(elastic_net.alpha_))
+    # print("best elasticNET l1 ratio : " + str(elastic_net.l1_ratio_))
+    # final_elastic_net_model = train_elastic_net_regression(X_train= X, y_train=y, alpha=elastic_net.alpha_,l1_ratio=elastic_net.l1_ratio_)
+    
+    # rse_elastic_net, r2_elastic_net = evaluate_model(final_elastic_net_model, X_test_real, y_test_real)
+    # print(f"Final elastic_net Model - RSE: {rse_elastic_net}, R^2: {r2_elastic_net}")
+    # n, p = X.shape
+    # rse_path = np.sqrt((elastic_net.mse_path_ * n) / (n - p - 1))
+    # plt.subplot(1, 2, 2)
+    # plt.semilogx(elastic_net.alphas_, rse_path, linestyle=":")
+    # plt.plot(elastic_net.alphas_, rse_path.mean(axis=-1), color="black", label="Average across the folds", linewidth=2)
+    # plt.axvline(elastic_net.alpha_, linestyle="--", color="black", label="alpha: CV estimate")
+    # plt.xlabel(r"$\alpha$")
+    # plt.ylabel("(RSE)")
+    # plt.legend()
+    # _ = plt.title(f"ElasticNet (train time: {fit_time:.2f}s)")
+    # plt.show()
 
 #########################################################################################
 # Calls to generate the results
