@@ -176,33 +176,52 @@ def Q2_results():
 
 
 def Q3_results():
+
+    
     train = train_data_loader()
     test = test_data_loader()
-    best_knn_clasifier = None
-    train_error_rate = []
-    test_error_rate = []
-    k_neighbours = [i for i in range(100, 0, -1)]
+    X_train = train.iloc[:,:-1]
+    y_train = train.iloc[:,-1]
+    X_test = test.iloc[:,:-1]
+    y_test = test.iloc[:,-1]
 
-    if knn_Euclidean.best_classifier_accuracy > knn_Manhattan.best_classifier_accuracy:
-        best_knn_clasifier = KNN('Euclidean')
-    else:
-        best_knn_clasifier = KNN('Manhattan')
 
-    for k in k_neighbours:
-        train_acc, test_acc = best_knn_clasifier.train_test(k, train, test)
-        test_error_rate.append(1-test_acc)
-        train_error_rate.append(1-train_acc)
-    
-    plt.plot(list(map(lambda x: 1/x, k_neighbours)), test_error_rate, 'g--', label="Test Error Rate")
-    plt.plot(list(map(lambda x: 1/x, k_neighbours)), train_error_rate, 'b--', label="Train Error Rate")
-    plt.xscale('log')
-    plt.xlabel('1/k')
-    plt.ylabel('Error Rate')
-    plt.legend(loc='lower left')
+    param_grid = {'C': [.1,.2,.5,.7,1,1.5,2,3,5,10,100],'gamma':np.logspace(-3,0,10)}
+    grid_search = GridSearchCV(SVC(kernel='rbf',max_iter= 5000), param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+
+    best_C = grid_search.best_params_['C']
+    best_gamma = grid_search.best_params_['gamma']
+    print(f"Best C: {best_C}, Best gamma: {best_gamma}")
+    scores = grid_search.cv_results_['mean_test_score']
+    scores_matrix = scores.reshape(len(param_grid['gamma']), len(param_grid['C'])) 
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(scores_matrix, annot=True, fmt=".2f", xticklabels=np.round(param_grid['C'], 2), yticklabels=param_grid['gamma'], cmap="viridis")
+    plt.xlabel("C Values (log scale)")
+    plt.ylabel("gamma")
+    plt.title("Grid Search Accuracy for C and gamma ")
     plt.show()
-    print("--"*5 +"Question 3" + "--" *5)
-    print(f'Q3 finished')
-    print("--"*10)
+
+
+    final_model = SVC(C=best_C,kernel='rbf',gamma=best_gamma,max_iter= 5000)
+    final_model.fit(X_train, y_train)
+    y_pred = final_model.predict(X_test)
+
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='binary')
+    recall = recall_score(y_test, y_pred, average='binary')
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
+
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = conf_matrix.ravel()
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+    print("performance metric for rbf kernel SVM: ")
+    print(f"Accuracy: {accuracy:.2f}")
+    print(f"Precision: {precision:.2f}")
+    print(f"Recall : {recall:.2f}")
+    print(f"Specificity: {specificity:.2f}")
+    print(f"Balanced Accuracy: {balanced_acc:.2f}")
+
 
 def noise_removal(df):
     # print(df.describe())
@@ -258,4 +277,4 @@ def diagnoseDAT(Xtest, data_dir):
 #########################################################################################
 if __name__ == "__main__":
     # train_data_loader()
-    Q2_results()
+    Q3_results()
