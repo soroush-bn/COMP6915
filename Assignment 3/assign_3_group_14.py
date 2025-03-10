@@ -21,7 +21,7 @@ import pandas as pd
 from sklearn.cluster import DBSCAN
 # from sklearn.neighbors import KNeighborsClassifier,KernelDensity
 from sklearn.svm import LinearSVC,SVC
-
+import seaborn as sns
 from sklearn.model_selection import GridSearchCV, ShuffleSplit, cross_val_score, validation_curve
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, balanced_accuracy_score, confusion_matrix
 
@@ -83,7 +83,7 @@ def Q1_results():
     for cv in n_folds:
         print(f"Running GridSearchCV with {cv}-fold cross-validation...")
         
-        grid_search = GridSearchCV(LinearSVC(dual=False, max_iter=5000), {'C': param_grid['C']}, cv=cv, scoring='accuracy', n_jobs=-1)
+        grid_search = GridSearchCV(LinearSVC(dual=False, max_iter=5000), param_grid, cv=cv, scoring='accuracy', n_jobs=-1)
         grid_search.fit(X_train, y_train)
         best_cs.append(grid_search.best_params_['C'])        
         mean_scores = grid_search.cv_results_['mean_test_score']
@@ -115,6 +115,7 @@ def Q1_results():
     conf_matrix = confusion_matrix(y_test, y_pred)
     tn, fp, fn, tp = conf_matrix.ravel()
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+    print("performance metrics for linear kerenl SVM: ")
 
     print(f"Accuracy: {accuracy:.2f}")
     print(f"Precision: {precision:.2f}")
@@ -122,26 +123,57 @@ def Q1_results():
     print(f"Specificity: {specificity:.2f}")
     print(f"Balanced Accuracy: {balanced_acc:.2f}")
 
-    mean_scores = grid_search.cv_results_['mean_test_score']
 
 
 
 def Q2_results():
-    global knn_Manhattan
-
+   
+    
     train = train_data_loader()
     test = test_data_loader()
-    grid = grid_point_loader()
+    X_train = train.iloc[:,:-1]
+    y_train = train.iloc[:,-1]
+    X_test = test.iloc[:,:-1]
+    y_test = test.iloc[:,-1]
 
-    knn_Manhattan = KNN('Manhattan')
-    best_k = knn_Euclidean.best_classifier_k
-    train_acc, test_acc, class_boundary = *knn_Manhattan.train_test(best_k, train, test), knn_Manhattan.generate_grid(grid)
-    title = f'k={best_k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Manhattan'
-    plot(train, test, grid, class_boundary, title)
-    print("--"*5 +"Question 2" + "--" *5)
-    print(f'Euclidean -> Best Accuracy = {knn_Euclidean.best_classifier_accuracy} and Best k = {knn_Euclidean.best_classifier_k}')
-    print(f'Manhattan -> Best Accuracy = {knn_Manhattan.best_classifier_accuracy} and Best k = {knn_Manhattan.best_classifier_k}')
-    print("--"*10)
+
+    param_grid = {'C': [.1,.2,.5,.7,1,1.5,2,3,5,10,100],'degree':[1,2,3,4,5,6]}
+    grid_search = GridSearchCV(SVC(kernel='poly',max_iter= 5000), param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+
+    best_C = grid_search.best_params_['C']
+    best_degree = grid_search.best_params_['degree']
+    print(f"Best C: {best_C}, Best Degree: {best_degree}")
+    scores = grid_search.cv_results_['mean_test_score']
+    scores_matrix = scores.reshape(len(param_grid['degree']), len(param_grid['C']))  
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(scores_matrix, annot=True, fmt=".2f", xticklabels=np.round(param_grid['C'], 2), yticklabels=param_grid['degree'], cmap="viridis")
+    plt.xlabel("C Values (log scale)")
+    plt.ylabel("Polynomial Degree")
+    plt.title("Grid Search Accuracy for C and Degree ")
+    plt.show()
+
+
+    final_model = SVC(C=best_C,kernel='poly',degree=best_degree,max_iter= 5000)
+    final_model.fit(X_train, y_train)
+    y_pred = final_model.predict(X_test)
+
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='binary')
+    recall = recall_score(y_test, y_pred, average='binary')
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
+
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = conf_matrix.ravel()
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+    print("performance metric for poly kernel SVM: ")
+    print(f"Accuracy: {accuracy:.2f}")
+    print(f"Precision: {precision:.2f}")
+    print(f"Recall : {recall:.2f}")
+    print(f"Specificity: {specificity:.2f}")
+    print(f"Balanced Accuracy: {balanced_acc:.2f}")
+
+
 
 def Q3_results():
     train = train_data_loader()
@@ -226,4 +258,4 @@ def diagnoseDAT(Xtest, data_dir):
 #########################################################################################
 if __name__ == "__main__":
     # train_data_loader()
-    Q1_results()
+    Q2_results()
