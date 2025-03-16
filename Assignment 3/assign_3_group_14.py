@@ -231,31 +231,45 @@ def noise_removal(df):
     return df
 
 def Q4_results():
-    global knn_Euclidean
-
+   
     train = train_data_loader()
     test = test_data_loader()
-    grid = grid_point_loader()
-    scaler = MinMaxScaler()
-    grid[['X1','X2']]   = scaler.fit_transform(grid[['X1','X2']])
+    X_train = train.iloc[:,:-1]
+    y_train = train.iloc[:,-1]
+    X_test = test.iloc[:,:-1]
+    y_test = test.iloc[:,-1]
 
+    S = MinMaxScaler()
+    X_train = S.fit_transform(X_train)
+    X_test= S.fit_transform(X_test)
+    param_grid = {'C': [.1,.2,.5,.7,1,1.5,2,3,5,10,100],'gamma':np.logspace(-3,0,10)}
+    grid_search = GridSearchCV(SVC(kernel='rbf',max_iter= 5000), param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
 
-    knn_Euclidean = KNN('Euclidean')
-    # ks = [30]
-    ks = [19]
-    test_accs=  [] 
-    train_accs = [] 
-    for k in ks:
-        train_acc, test_acc, class_boundary = *knn_Euclidean.train_test(k, train, test, normalize=True, noise=True, w='distance'), knn_Euclidean.generate_grid(grid)
-        test_accs.append(test_acc)
-        train_accs.append(train_acc)
-        title = f'k={k} - Train Error = {round(1-train_acc, 2)} - Test Error = {round(1-test_acc, 2)} - distance= Euclidean'
-        plot(train, test, grid, class_boundary, title,x_lim=0,y_lim=1)
-    print("--"*5 +"Question 4" + "--" *5)
-    print(f"test_acc:{test_accs},train_accuracy:{train_accs}")
-    print("--"*10)
+    best_C = grid_search.best_params_['C']
+    best_gamma = grid_search.best_params_['gamma']
+    print(f"Best C: {best_C}, Best gamma: {best_gamma}")
+    scores = grid_search.cv_results_['mean_test_score']
+    scores_matrix = scores.reshape(len(param_grid['gamma']), len(param_grid['C'])) 
 
+    final_model = SVC(C=best_C,kernel='rbf',gamma=best_gamma,max_iter= 5000)
+    final_model.fit(X_train, y_train)
+    y_pred = final_model.predict(X_test)
 
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='binary')
+    recall = recall_score(y_test, y_pred, average='binary')
+    balanced_acc = balanced_accuracy_score(y_test, y_pred)
+
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = conf_matrix.ravel()
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+    print("performance metric for rbf kernel with normalization SVM: ")
+    print(f"Accuracy: {accuracy:.2f}")
+    print(f"Precision: {precision:.2f}")
+    print(f"Recall : {recall:.2f}")
+    print(f"Specificity: {specificity:.2f}")
+    print(f"Balanced Accuracy: {balanced_acc:.2f}")
     
 def diagnoseDAT(Xtest, data_dir):
     """
@@ -277,4 +291,7 @@ def diagnoseDAT(Xtest, data_dir):
 #########################################################################################
 if __name__ == "__main__":
     # train_data_loader()
-    Q3_results()
+    # Q1_results()
+    # Q2_results()
+    # Q3_results()
+    Q4_results()
