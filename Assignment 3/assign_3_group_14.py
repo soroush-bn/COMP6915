@@ -14,6 +14,8 @@ import os
 def warn(*args, **kwargs):
     pass
 import warnings
+from sklearn.exceptions import ConvergenceWarning
+warnings.catch_warnings()
 warnings.warn = warn
 import numpy as np
 import matplotlib.pyplot as plt
@@ -171,7 +173,7 @@ def Q2_results():
     print(f"Precision: {precision:.2f}")
     print(f"Recall : {recall:.2f}")
     print(f"Specificity: {specificity:.2f}")
-    print(f"Balanced Accuracy: {balanced_acc:.2f}")
+    print(f"Balanced Accuracy: {balanced_acc:.4f}")
 
 
 
@@ -220,7 +222,7 @@ def Q3_results():
     print(f"Precision: {precision:.2f}")
     print(f"Recall : {recall:.2f}")
     print(f"Specificity: {specificity:.2f}")
-    print(f"Balanced Accuracy: {balanced_acc:.2f}")
+    print(f"Balanced Accuracy: {balanced_acc:.4f}")
 
 
 def noise_removal(df):
@@ -241,9 +243,9 @@ def Q4_results():
 
     S = MinMaxScaler()
     X_train = S.fit_transform(X_train)
-    X_test= S.fit_transform(X_test)
+    X_test= S.transform(X_test)
     param_grid = {'C': [.1,.2,.5,.7,1,1.5,2,3,5,10,100],'gamma':np.logspace(-3,0,10)}
-    grid_search = GridSearchCV(SVC(kernel='rbf',max_iter= 5000), param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+    grid_search = GridSearchCV(SVC(kernel='rbf'), param_grid, cv=5, scoring='accuracy', n_jobs=-1)
     grid_search.fit(X_train, y_train)
 
     best_C = grid_search.best_params_['C']
@@ -269,29 +271,50 @@ def Q4_results():
     print(f"Precision: {precision:.2f}")
     print(f"Recall : {recall:.2f}")
     print(f"Specificity: {specificity:.2f}")
-    print(f"Balanced Accuracy: {balanced_acc:.2f}")
+    print(f"Balanced Accuracy: {balanced_acc:.4f}")
     
 def diagnoseDAT(Xtest, data_dir):
-    """
-    Examples
-    --------
-    >>> diagnoseDAT([[1,1]], '.')
-    array([1])
+    """Returns a vector of predictions with elements "0" for sNC and "1" for sDAT,
+corresponding to each of the N_test features vectors in Xtest
+Xtest N_test x 14 matrix of test feature vectors
+data_dir full path to the folder containing the following files:
+train.fdg_pet.sNC.csv, train.fdg_pet.sDAT.csv,
+test.fdg_pet.sNC.csv, test.fdg_pet.sDAT.csv
+"""
 
-    """
-    train = data_loader(data_dir + '/train.sDAT.csv', data_dir + '/train.sNC.csv')
-    test = data_loader(data_dir + '/test.sDAT.csv', data_dir + '/test.sNC.csv')
-    Xtest = pd.DataFrame(Xtest, columns=['X1', 'X2'])
-    knn_Euclidean = KNN('Euclidean')
-    prediction = knn_Euclidean.train_test(19, train, Xtest, normalize=True, noise=True, inference=True, w='distance')
-    return prediction
+    train = data_loader(data_dir + '/train.fdg_pet.sDAT.csv', data_dir + '/train.fdg_pet.sNC.csv')
+    test = data_loader(data_dir + '/test.fdg_pet.sDAT.csv', data_dir + '/test.fdg_pet.sNC.csv')
+    train = pd.concat([train, test], ignore_index=True)
+    X_train = train.iloc[:,:-1]
+    y_train = train.iloc[:,-1]
+    Xtest = np.array(Xtest).reshape(-1, 14)
+    
+    X_test = pd.DataFrame(Xtest, columns=X_train.columns)
+    S = MinMaxScaler()
+    
+    X_train = S.fit_transform(X_train)
+
+    X_test= S.transform(X_test)
+    param_grid = {'C': [.1,.2,.5,.7,1,1.5,2,3,5,10,100],'gamma':np.logspace(-3,0,10)}
+    grid_search = GridSearchCV(SVC(kernel='rbf'), param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+
+    best_C = grid_search.best_params_['C']
+    best_gamma = grid_search.best_params_['gamma']
+
+    final_model = SVC(C=best_C,kernel='rbf',gamma=best_gamma,max_iter= 5000)
+    final_model.fit(X_train, y_train)
+    y_pred = final_model.predict(X_test)
+
+    return y_pred
 
 #########################################################################################
 # Calls to generate the results
 #########################################################################################
 if __name__ == "__main__":
     # train_data_loader()
-    # Q1_results()
-    # Q2_results()
-    # Q3_results()
+    Q1_results()
+    Q2_results()
+    Q3_results()
     Q4_results()
+    # diagnoseDAT([1,2,3,4,5,6,7,8,9,10,1,2,3,4],".")
