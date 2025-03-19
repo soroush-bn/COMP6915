@@ -307,7 +307,7 @@ test.fdg_pet.sNC.csv, test.fdg_pet.sDAT.csv
     y_pred = final_model.predict(X_test)
 
     return y_pred
-
+y_test = diagnoseDAT    
 #########################################################################################
 # Calls to generate the results
 #########################################################################################
