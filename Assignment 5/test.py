@@ -1,50 +1,29 @@
-from fastai.tabular.all import *
-from sklearn.datasets import load_digits
-from sklearn.model_selection import train_test_split
-import pandas as pd
-import torch
+from fastai.vision.all import *
 
-# ✅ Load dataset correctly
-digits = load_digits()
-X, y = digits.data, digits.target
+def train_mnist():
+    # ✅ Load MNIST dataset directly from Fastai
+    path = untar_data(URLs.MNIST_SAMPLE)  # Small MNIST subset (3s and 7s)
+    dls = ImageDataLoaders.from_folder(path, train='train', valid='valid', bs=64, num_workers=0)  # Set num_workers=0 for Windows
 
-# ✅ Convert to DataFrame
-df = pd.DataFrame(X)
-df['label'] = y
+    # ✅ Define CNN Model using Fastai
+    learn = vision_learner(dls, resnet18, metrics=accuracy)
 
-# ✅ Split dataset correctly
-df_train, df_test = train_test_split(df, test_size=0.2, stratify=df['label'], random_state=42)
+    # ✅ Train the model
+    learn.fine_tune(5)
 
-# ✅ Convert labels to category (Fastai requires categorical labels)
-df_train['label'] = df_train['label'].astype(str)
-df_test['label'] = df_test['label'].astype(str)
+    # ✅ Evaluate on Test Set
+    test_loss, test_acc = learn.validate()
+    print(f"\n🔥 Test Accuracy: {test_acc:.4f}")
 
-# ✅ Fastai processing
-procs = [Categorify, Normalize]  # Normalize inputs correctly
-dls = TabularDataLoaders.from_df(df_train, y_names="label", cont_names=list(df_train.columns[:-1]), procs=procs, bs=64)
+    # ✅ Save the trained model
+    learn.export("mnist_fastai.pkl")
 
-# ✅ Define and train a better model
-learn = tabular_learner(dls, layers=[128, 64], metrics=accuracy, loss_func=CrossEntropyLossFlat())  # Correct loss function
+    # ✅ Load Model & Predict on a Sample Image
+    learn_inf = load_learner("mnist_fastai.pkl")
+    img = PILImage.create(path/'valid/3/9323.png')  # Load a test image
+    preds, _, decoded_preds = learn_inf.predict(img)
+    print(f"Predicted label: {decoded_preds}")
+    img.show()
 
-# ✅ Find best learning rate
-learn.lr_find()
-
-# ✅ Train with an optimized learning rate
-learn.fit_one_cycle(10, 0.01)
-
-# ✅ Validate performance
-valid_loss, valid_acc = learn.validate()
-valid_err = 1 - valid_acc
-print(f"✅ Validation Error: {valid_err:.4f}")
-
-# ✅ Test on separate dataset
-dl_test = learn.dls.test_dl(df_test)
-test_preds, _ = learn.get_preds(dl=dl_test)
-test_acc = accuracy(test_preds, torch.tensor(df_test['label'].astype(int).values)).item()
-test_err = 1 - test_acc
-
-print(f"✅ Test Error: {test_err:.4f}")
-
-# ✅ Save model
-learn.export("final_mlp_model.pth")
-print("✅ Model saved as 'final_mlp_model.pth'")
+if __name__ == '__main__':  # ✅ Windows fix
+    train_mnist()

@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 import torch
 from fastai.tabular.all import *
+from fastai.vision.all import *
 from sklearn.model_selection import KFold
 
 
@@ -225,6 +226,90 @@ def Q4_results():
     learn.export("final_mlp_model.pth")
     print("Model saved as 'final_mlp_model.pth'")
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
+def classifyHandwrittenDigits():
+    data = np.load('mnist_train_data.npy')
+    #Find Duplicated and Missing samples
+    data = data.reshape(60000,784)
+    label = np.load('mnist_train_labels.npy')
+
+    #Check if dataset is unbalanced
+    _, counts_before = np.unique(label, axis=0, return_counts=True)
+    
+    # choose 2000 samples for hyperparameter tuning, because the dataset is huge
+    n_of_each_class_samples = math.floor(min(counts_before) * 0.9)
+    #spliting dataset
+    train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
+    train_X = train_X.reshape(-1, 1, 28, 28)
+    test_X = test_X.reshape(-1, 1, 28, 28)
+
+    train_X = torch.tensor(train_X).float()
+    train_Y = torch.tensor(train_Y).long()
+
+    test_X = torch.tensor(test_X).float()
+    test_Y = torch.tensor(test_Y).long()
+
+    # Create DataLoaders
+    batch_size = 64
+    train_loader = DataLoader(TensorDataset(train_X, train_Y), batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(TensorDataset(test_X, test_Y), batch_size=batch_size, shuffle=False)
+
+    # Define a simple CNN model
+    class CNN(nn.Module):
+        def __init__(self):
+            super(CNN, self).__init__()
+            self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+            self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+            self.pool = nn.MaxPool2d(2, 2)
+            self.fc1 = nn.Linear(64 * 14 * 14, 128)
+            self.fc2 = nn.Linear(128, 10)
+
+        def forward(self, x):
+            x = self.pool(F.relu(self.conv1(x)))
+            x = self.pool(F.relu(self.conv2(x)))
+            x = x.view(x.size(0), -1)
+            x = F.relu(self.fc1(x))
+            x = self.fc2(x)
+            return x
+
+    # Initialize model, loss function, and optimizer
+    device = "cpu"
+    model = CNN().to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    # Train the model
+    num_epochs = 5
+    for epoch in range(num_epochs):
+        model.train()
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)
+
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+
+    # Evaluate on test data
+    model.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print(f"Test Accuracy: {100 * correct / total:.2f}%")
 
 #########################################################################################
 # Calls to generate the results
@@ -233,4 +318,6 @@ if __name__ == "__main__":
     # Q1_results()
     # Q2_results()
     # Q3_results()
-    Q4_results()
+    # Q4_results()
+    classifyHandwrittenDigits()
+
