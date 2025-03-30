@@ -182,7 +182,7 @@ def Q4_results():
     #Check if dataset is unbalanced
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
-    # choose 2000 samples for hyperparameter tuning, because the dataset is huge
+    # Find minimum number of samples for each class to statisfy second and third conditions
     n_of_each_class_samples = math.floor(min(counts_before) * 0.9)
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
@@ -232,7 +232,32 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
-def classifyHandwrittenDigits():
+
+# Define a simple CNN model
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.flatten = nn.Flatten()  # Flatten layer
+
+        self.fc1 = nn.Linear(64*7*7, 128)
+        self.fc2 = nn.Linear(128, 10)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+
+        x = self.flatten(x)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+    
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+def TrainCNNModel():
     data = np.load('mnist_train_data.npy')
     #Find Duplicated and Missing samples
     data = data.reshape(60000,784)
@@ -241,7 +266,7 @@ def classifyHandwrittenDigits():
     #Check if dataset is unbalanced
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
-    # choose 2000 samples for hyperparameter tuning, because the dataset is huge
+    # Find minimum number of samples for each class to statisfy second and third conditions
     n_of_each_class_samples = math.floor(min(counts_before) * 0.9)
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
@@ -259,32 +284,16 @@ def classifyHandwrittenDigits():
     train_loader = DataLoader(TensorDataset(train_X, train_Y), batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(TensorDataset(test_X, test_Y), batch_size=batch_size, shuffle=False)
 
-    # Define a simple CNN model
-    class CNN(nn.Module):
-        def __init__(self):
-            super(CNN, self).__init__()
-            self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-            self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-            self.pool = nn.MaxPool2d(2, 2)
-            self.fc1 = nn.Linear(64 * 14 * 14, 128)
-            self.fc2 = nn.Linear(128, 10)
-
-        def forward(self, x):
-            x = self.pool(F.relu(self.conv1(x)))
-            x = self.pool(F.relu(self.conv2(x)))
-            x = x.view(x.size(0), -1)
-            x = F.relu(self.fc1(x))
-            x = self.fc2(x)
-            return x
-
     # Initialize model, loss function, and optimizer
     device = "cpu"
     model = CNN().to(device)
+    print(f"Total parameters: {count_parameters(model)}")
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+    # model = torch.load('model.pth', weights_only=False)
     # Train the model
-    num_epochs = 5
+    num_epochs = 30
     for epoch in range(num_epochs):
         model.train()
         for images, labels in train_loader:
@@ -310,6 +319,19 @@ def classifyHandwrittenDigits():
             correct += (predicted == labels).sum().item()
 
     print(f"Test Accuracy: {100 * correct / total:.2f}%")
+    torch.save(model, 'model.pth')
+
+def classifyHandwrittenDigits(Xtest, data_dir=None, model_path='model.pth'):
+    model = torch.load(model_path, weights_only=False)
+
+    Xtest = torch.tensor(Xtest, dtype=torch.float32).unsqueeze(1)/255.0
+
+    with torch.no_grad():
+        outputs = model(Xtest)
+        predictions = torch.argmax(outputs, dim=1)  # Get predicted labels
+
+    return predictions.numpy()
+
 
 #########################################################################################
 # Calls to generate the results
@@ -319,5 +341,7 @@ if __name__ == "__main__":
     # Q2_results()
     # Q3_results()
     # Q4_results()
-    classifyHandwrittenDigits()
+    # TrainCNNModel()
+    print(classifyHandwrittenDigits(np.load('mnist_train_data.npy'))[:10])
+    print(np.load('mnist_train_labels.npy')[:10])
 
