@@ -3,9 +3,9 @@
 #  Assignment 4
 #
 #  Group 14:
-#  <Mantra> <mantras@mun.ca>
-#  <Group Member 2 name> <Group Member 1 email>
-#  <Group Member 3 name> <Group Member 1 email>
+#  Mantra mantras@mun.ca
+#  Ramyar Zarza rzarza@mun.ca
+#  Soroush Baghernezhad sbaghernezha@mun.ca
 
 ####################################################################################
 # Imports
