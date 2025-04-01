@@ -23,6 +23,10 @@ import torch
 from fastai.tabular.all import *
 from fastai.vision.all import *
 from sklearn.model_selection import KFold
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
 
 
 
@@ -228,12 +232,6 @@ def Q4_results():
     learn.export("Q4_final_model.pth")
     print("Model saved as 'final_mlp_model.pth'")
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-import numpy as np
-from torch.utils.data import DataLoader, TensorDataset
 
 # Define a simple CNN model
 class CNN(nn.Module):
