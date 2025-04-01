@@ -85,8 +85,8 @@ def Q2_results():
     #Check if dataset is unbalanced
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
-    # choose 2000 samples for hyperparameter tuning, because the dataset is huge
-    n_of_each_class_samples = 200
+    # choose 500 samples for hyperparameter tuning, because the dataset is huge
+    n_of_each_class_samples = 500
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
     
@@ -139,7 +139,7 @@ def Q3_results():
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
     # choose 2000 samples for hyperparameter tuning, because the dataset is huge
-    n_of_each_class_samples = 200
+    n_of_each_class_samples = 500
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
 
@@ -202,10 +202,11 @@ def Q4_results():
     for layers in architectures:
         dls = TabularDataLoaders.from_df(df_train, y_names="label", bs=64, cont_names=list(df_train.columns[:-1]), shuffle_train=True)
         learn = tabular_learner(dls, layers=layers, metrics=accuracy)
+        learn.lr_find()
         learn.fit_one_cycle(5)
-        dl_test = learn.dls.test_dl(df_train)
+        dl_test = learn.dls.test_dl(df_test)
         test_preds, _ = learn.get_preds(dl=dl_test)
-        test_acc = accuracy(test_preds, torch.tensor(train_Y)).item()
+        test_acc = accuracy(test_preds, torch.tensor(test_Y)).item()
         test_err = 1 - test_acc
         print(f"Training Data -> Architecture: {layers} - Error: {test_err:.4f}")
 
@@ -213,6 +214,7 @@ def Q4_results():
     print("Start Training Best Model")
     dls = TabularDataLoaders.from_df(df_train, y_names="label", bs=64, cont_names=list(df_train.columns[:-1]), shuffle_train=True)
     learn = tabular_learner(dls, layers=[256,128], metrics=accuracy)
+    learn.lr_find()
     learn.fit_one_cycle(10)
     dl_test = learn.dls.test_dl(df_test)
     test_preds, _ = learn.get_preds(dl=dl_test)
@@ -223,7 +225,7 @@ def Q4_results():
 
 
     # Save the final model
-    learn.export("final_mlp_model.pth")
+    learn.export("Q4_final_model.pth")
     print("Model saved as 'final_mlp_model.pth'")
 
 import torch
@@ -270,11 +272,11 @@ def TrainCNNModel():
     n_of_each_class_samples = math.floor(min(counts_before) * 0.9)
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
-    train_X = train_X.reshape(-1, 1, 28, 28)
+    train_X = data.reshape(-1, 1, 28, 28)
     test_X = test_X.reshape(-1, 1, 28, 28)
 
-    train_X = torch.tensor(train_X).float()
-    train_Y = torch.tensor(train_Y).long()
+    train_X = torch.tensor(train_X).float()/255.0
+    train_Y = torch.tensor(label).long()
 
     test_X = torch.tensor(test_X).float()
     test_Y = torch.tensor(test_Y).long()
@@ -289,7 +291,7 @@ def TrainCNNModel():
     model = CNN().to(device)
     print(f"Total parameters: {count_parameters(model)}")
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     # model = torch.load('model.pth', weights_only=False)
     # Train the model
@@ -319,9 +321,9 @@ def TrainCNNModel():
             correct += (predicted == labels).sum().item()
 
     print(f"Test Accuracy: {100 * correct / total:.2f}%")
-    torch.save(model, 'model.pth')
+    torch.save(model, 'Q5_model.pth')
 
-def classifyHandwrittenDigits(Xtest, data_dir=None, model_path='model.pth'):
+def classifyHandwrittenDigits(Xtest, data_dir=None, model_path='Q5_model.pth'):
     model = torch.load(model_path, weights_only=False)
 
     Xtest = torch.tensor(Xtest, dtype=torch.float32).unsqueeze(1)/255.0
@@ -337,11 +339,9 @@ def classifyHandwrittenDigits(Xtest, data_dir=None, model_path='model.pth'):
 # Calls to generate the results
 #########################################################################################
 if __name__ == "__main__":
-    # Q1_results()
-    # Q2_results()
-    # Q3_results()
-    # Q4_results()
+    Q1_results()
+    Q2_results()
+    Q3_results()
+    Q4_results()
     # TrainCNNModel()
-    print(classifyHandwrittenDigits(np.load('mnist_train_data.npy'))[:10])
-    print(np.load('mnist_train_labels.npy')[:10])
 
