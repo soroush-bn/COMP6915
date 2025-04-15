@@ -1,10 +1,11 @@
+
 #
 #  Assignment 4
 #
 #  Group 14:
-#  <Mantra> <mantras@mun.ca>
-#  <Group Member 2 name> <Group Member 1 email>
-#  <Group Member 3 name> <Group Member 1 email>
+#  Mantra mantras@mun.ca
+#  Ramyar Zarza rzarza@mun.ca
+#  Soroush Baghernezhad sbaghernezha@mun.ca
 
 ####################################################################################
 # Imports
@@ -14,10 +15,14 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.metrics import accuracy_score, recall_score, precision_score, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold
+from sklearn.metrics import accuracy_score, recall_score, precision_score, confusion_matrix, balanced_accuracy_score, make_scorer
+from sklearn.ensemble import VotingClassifier
+from sklearn.calibration import CalibratedClassifierCV
 import matplotlib.pyplot as plt
+import scipy.stats as stats
+import joblib
 
 # Define feature names present in the fdg_pet.feature.info
 feature_names = [
@@ -147,8 +152,6 @@ def Q2_results():
     for feature, importance in zip(feature_names, best_dt.feature_importances_):
         print(f"{feature}: {importance:.4f}")
 
-    
-
 def Q3_results():
     print('Generating results for Q3...')
     
@@ -194,13 +197,77 @@ def Q3_results():
     for metric in dt_metrics:
         print(f"{metric}: {metrics[metric]:.4f} vs {dt_metrics[metric]:.4f}")
     
-    
     return best_rf
 
-#########################################################################################
-# Calls to generate the results
-#########################################################################################
+#  Implementation - Q4 
+
+def train_best_q4_model(X_train, y_train):
+    gb = GradientBoostingClassifier(random_state=42)
+    rf = RandomForestClassifier(random_state=42, n_jobs=-1)
+    et = ExtraTreesClassifier(random_state=42, n_jobs=-1)
+    
+    param_dist = {
+        'gb__n_estimators': [200, 300],
+        'gb__learning_rate': [0.05, 0.1],
+        'rf__n_estimators': [200, 300],
+        'rf__max_features': ['sqrt', None],
+        'et__n_estimators': [200, 300],
+        'et__max_features': ['sqrt', None]
+    }
+    
+    ensemble = VotingClassifier([
+        ('gb', gb),
+        ('rf', rf),
+        ('et', et)
+    ], voting='soft',weights=[0.4, 0.3, 0.3])
+    
+    
+    search = GridSearchCV(
+        ensemble,
+        param_dist,
+        scoring='balanced_accuracy',
+        cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42),
+        n_jobs=-1
+    )
+    search.fit(X_train, y_train)
+    return search.best_estimator_
+
+def predictMCIconverters(Xtest, data_dir):
+    model_path = os.path.join(data_dir, 'q4_best_model4.pkl')
+    
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+    else:
+        sMCI_train = pd.read_csv(os.path.join(data_dir, 'train.fdg_pet.sMCI.csv'), header=None)
+        pMCI_train = pd.read_csv(os.path.join(data_dir, 'train.fdg_pet.pMCI.csv'), header=None)
+        
+        sMCI_train.columns = pMCI_train.columns = feature_names
+        sMCI_train['label'] = 0
+        pMCI_train['label'] = 1
+        train_data = pd.concat([sMCI_train, pMCI_train], axis=0)
+        X_train, y_train = train_data.drop('label', axis=1), train_data['label']
+        
+        model = train_best_q4_model(X_train, y_train)
+        joblib.dump(model, model_path)
+    
+    return model.predict(Xtest)
+
+def Q4_results():
+    print('\nGenerating results for Q4...')
+    data_dir = '.'
+    
+    X_train, y_train, X_test, y_test = load_data(data_dir)
+    
+    y_pred = predictMCIconverters(X_test, data_dir)
+    
+    metrics = evaluate_metrics(y_test, y_pred)
+    print_metrics(metrics, "Q4 Best Model")
+    print("Confusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+
 if __name__ == "__main__":
     Q1_results()
     Q2_results()
     Q3_results()
+    Q4_results()
+

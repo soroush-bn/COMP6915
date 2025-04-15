@@ -21,7 +21,12 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 import torch
 from fastai.tabular.all import *
+from fastai.vision.all import *
 from sklearn.model_selection import KFold
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
 
 
 
@@ -84,8 +89,8 @@ def Q2_results():
     #Check if dataset is unbalanced
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
-    # choose 2000 samples for hyperparameter tuning, because the dataset is huge
-    n_of_each_class_samples = 200
+    # choose 500 samples for hyperparameter tuning, because the dataset is huge
+    n_of_each_class_samples = 500
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
     
@@ -138,7 +143,7 @@ def Q3_results():
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
     # choose 2000 samples for hyperparameter tuning, because the dataset is huge
-    n_of_each_class_samples = 200
+    n_of_each_class_samples = 500
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
 
@@ -181,7 +186,7 @@ def Q4_results():
     #Check if dataset is unbalanced
     _, counts_before = np.unique(label, axis=0, return_counts=True)
     
-    # choose 2000 samples for hyperparameter tuning, because the dataset is huge
+    # Find minimum number of samples for each class to statisfy second and third conditions
     n_of_each_class_samples = math.floor(min(counts_before) * 0.9)
     #spliting dataset
     train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
@@ -201,10 +206,11 @@ def Q4_results():
     for layers in architectures:
         dls = TabularDataLoaders.from_df(df_train, y_names="label", bs=64, cont_names=list(df_train.columns[:-1]), shuffle_train=True)
         learn = tabular_learner(dls, layers=layers, metrics=accuracy)
+        learn.lr_find()
         learn.fit_one_cycle(5)
-        dl_test = learn.dls.test_dl(df_train)
+        dl_test = learn.dls.test_dl(df_test)
         test_preds, _ = learn.get_preds(dl=dl_test)
-        test_acc = accuracy(test_preds, torch.tensor(train_Y)).item()
+        test_acc = accuracy(test_preds, torch.tensor(test_Y)).item()
         test_err = 1 - test_acc
         print(f"Training Data -> Architecture: {layers} - Error: {test_err:.4f}")
 
@@ -212,6 +218,7 @@ def Q4_results():
     print("Start Training Best Model")
     dls = TabularDataLoaders.from_df(df_train, y_names="label", bs=64, cont_names=list(df_train.columns[:-1]), shuffle_train=True)
     learn = tabular_learner(dls, layers=[256,128], metrics=accuracy)
+    learn.lr_find()
     learn.fit_one_cycle(10)
     dl_test = learn.dls.test_dl(df_test)
     test_preds, _ = learn.get_preds(dl=dl_test)
@@ -222,15 +229,117 @@ def Q4_results():
 
 
     # Save the final model
-    learn.export("final_mlp_model.pth")
+    learn.export("Q4_final_model.pth")
     print("Model saved as 'final_mlp_model.pth'")
+
+
+# Define a simple CNN model
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.flatten = nn.Flatten()  # Flatten layer
+
+        self.fc1 = nn.Linear(64*7*7, 128)
+        self.fc2 = nn.Linear(128, 10)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+
+        x = self.flatten(x)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+    
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+def TrainCNNModel():
+    data = np.load('mnist_train_data.npy')
+    #Find Duplicated and Missing samples
+    data = data.reshape(60000,784)
+    label = np.load('mnist_train_labels.npy')
+
+    #Check if dataset is unbalanced
+    _, counts_before = np.unique(label, axis=0, return_counts=True)
+    
+    # Find minimum number of samples for each class to statisfy second and third conditions
+    n_of_each_class_samples = math.floor(min(counts_before) * 0.9)
+    #spliting dataset
+    train_X, test_X, train_Y, test_Y = train_test_split(data, label, n_of_each_class_samples)
+    train_X = data.reshape(-1, 1, 28, 28)
+    test_X = test_X.reshape(-1, 1, 28, 28)
+
+    train_X = torch.tensor(train_X).float()/255.0
+    train_Y = torch.tensor(label).long()
+
+    test_X = torch.tensor(test_X).float()
+    test_Y = torch.tensor(test_Y).long()
+
+    # Create DataLoaders
+    batch_size = 64
+    train_loader = DataLoader(TensorDataset(train_X, train_Y), batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(TensorDataset(test_X, test_Y), batch_size=batch_size, shuffle=False)
+
+    # Initialize model, loss function, and optimizer
+    device = "cpu"
+    model = CNN().to(device)
+    print(f"Total parameters: {count_parameters(model)}")
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+
+    # model = torch.load('model.pth', weights_only=False)
+    # Train the model
+    num_epochs = 30
+    for epoch in range(num_epochs):
+        model.train()
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)
+
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+
+    # Evaluate on test data
+    model.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print(f"Test Accuracy: {100 * correct / total:.2f}%")
+    torch.save(model, 'Q5_model.pth')
+
+def classifyHandwrittenDigits(Xtest, data_dir=None, model_path='Q5_model.pth'):
+    model = torch.load(model_path, weights_only=False)
+
+    Xtest = torch.tensor(Xtest, dtype=torch.float32).unsqueeze(1)/255.0
+
+    with torch.no_grad():
+        outputs = model(Xtest)
+        predictions = torch.argmax(outputs, dim=1)  # Get predicted labels
+
+    return predictions.numpy()
 
 
 #########################################################################################
 # Calls to generate the results
 #########################################################################################
 if __name__ == "__main__":
-    # Q1_results()
-    # Q2_results()
-    # Q3_results()
+    Q1_results()
+    Q2_results()
+    Q3_results()
     Q4_results()
+    # TrainCNNModel()
+
